@@ -7,8 +7,8 @@ import (
 	"os/exec"
 	"time"
 
+	. "github.com/aditya87/chainstore/utils"
 	"github.com/go-redis/redis"
-	. "github.com/onsi/gomega"
 )
 
 func main() {
@@ -17,37 +17,44 @@ func main() {
 	err := cmd.Start()
 	if err != nil {
 		log.Fatalf("Could not start redis-server: %v\n", err)
+		return
 	}
 	time.Sleep(3 * time.Second)
 
 	fmt.Println("Setting up environment...")
-	os.Setenv("REDIS_HOST", "localhost")
 	os.Setenv("REDIS_PORT", "7777")
 	os.Setenv("PORT", "3000")
 
+	fmt.Println("Starting agent...")
 	cmd = exec.Command("/app/agent")
 	err = cmd.Start()
 	if err != nil {
 		log.Fatalf("Could not start agent: %v\n", err)
+		return
 	}
 
+	time.Sleep(3 * time.Second)
+
+	fmt.Println("Creating redis client...")
 	rClient := redis.NewClient(&redis.Options{
 		Addr: fmt.Sprintf(
-			"%s:%s",
-			os.Getenv("REDIS_HOST"),
+			"localhost:%s",
 			os.Getenv("PORT")),
 		DB: 0,
 	})
 
-	rClient.Set("k1", "value1", 0)
-	v1, err := rClient.Get("k1").Result()
-	Expect(err).NotTo(HaveOccurred())
-	Expect(v1).To(Equal("value1"))
-	fmt.Println("Tested SET/GET")
+	fmt.Println("Testing...")
+	_, err = rClient.Set("k1", "value1", 0).Result()
+	TAssert(err, IsNil)
 
-	rClient.SAdd("k2", "value2", 0)
+	v1, err := rClient.Get("k1").Result()
+	TAssert(err, IsNil)
+	TAssert(v1, Equals, "value1")
+
+	_, err = rClient.SAdd("k2", "value2", 0).Result()
+	TAssert(err, IsNil)
+
 	v2, err := rClient.SMembers("k2").Result()
-	Expect(err).NotTo(HaveOccurred())
-	Expect(v2).To(Equal([]string{"value2"}))
-	fmt.Println("Tested SADD/SMEMBERS")
+	TAssert(err, IsNil)
+	TAssert(v2, Equals, []string{"value2"})
 }

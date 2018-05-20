@@ -11,23 +11,15 @@ import (
 	"github.com/pkg/errors"
 )
 
-const (
-	CONN_HOST = "localhost"
-	CONN_PORT = "3333"
-	CONN_TYPE = "tcp"
-
-	REDIS_HOST = "localhost:6973"
-)
-
 func main() {
-	l, err := net.Listen(CONN_TYPE, CONN_HOST+":"+CONN_PORT)
+	l, err := net.Listen("tcp", "localhost:"+os.Getenv("PORT"))
 	if err != nil {
 		fmt.Println("Error listening:", err.Error())
 		os.Exit(1)
 	}
 	defer l.Close()
 
-	fmt.Println("Listening on " + CONN_HOST + ":" + CONN_PORT)
+	fmt.Println("Listening on " + "localhost:" + os.Getenv("PORT"))
 	for {
 		conn, err := l.Accept()
 		if err != nil {
@@ -48,7 +40,7 @@ func handleRequest(conn net.Conn) {
 		return
 	}
 
-	redisConn, err := net.Dial("tcp", REDIS_HOST)
+	redisConn, err := net.Dial("tcp", "localhost:"+os.Getenv("REDIS_PORT"))
 	if err != nil {
 		fmt.Println("Error connecting to redis host:", err.Error())
 		return
