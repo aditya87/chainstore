@@ -17,33 +17,20 @@ import (
 var rClient *redis.Client
 
 func main() {
-	fmt.Println("Starting redis server...")
-	cmd := exec.Command("redis-server", "--port", "7777")
-	err := cmd.Start()
-	if err != nil {
-		log.Fatalf("Could not start redis-server: %v\n", err)
-		return
-	}
-	time.Sleep(3 * time.Second)
-
-	fmt.Println("Setting up environment...")
 	os.Setenv("REDIS_PORT", "7777")
 	os.Setenv("PORT", "3000")
 
-	go func() {
-		fmt.Println("Starting agent...")
-		cmd = exec.Command("/app/agent")
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stdout
-		err := cmd.Run()
+	fmt.Println("Starting store...")
+	cmd := exec.Command("/app/store")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stdout
+	err := cmd.Start()
+	if err != nil {
+		log.Fatalf("Could not start store: %v\n", err)
+		return
+	}
 
-		if err != nil {
-			log.Fatalf("Could not start agent: %v\n", err)
-			return
-		}
-	}()
-
-	time.Sleep(2 * time.Second)
+	time.Sleep(6 * time.Second)
 
 	fmt.Println("Creating redis client...")
 	rClient = redis.NewClient(&redis.Options{

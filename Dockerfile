@@ -14,11 +14,14 @@ WORKDIR /src/github.com/aditya87/chainstore/agent
 RUN go build .
 WORKDIR /src/github.com/aditya87/chainstore/agent/agent_test
 RUN go build .
+WORKDIR /src/github.com/aditya87/chainstore/store
+RUN go build .
 
 FROM redis
 
 RUN mkdir -p /app
 COPY --from=0 /src/github.com/aditya87/chainstore/agent/agent /app/agent
+COPY --from=0 /src/github.com/aditya87/chainstore/store/store /app/store
 COPY --from=0 /src/github.com/aditya87/chainstore/agent/agent_test/agent_test /app/agent_test
 
 CMD /app/agent_test
