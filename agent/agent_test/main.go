@@ -55,14 +55,13 @@ func main() {
 	})
 
 	// Test that agent proxies to redis server
-	// TestProxy()
+	TestProxy()
 
 	// Test that agent writes incoming transactions to Merkle chain on disk
 	TestMerkleWrites()
 }
 
 func TestProxy() {
-	fmt.Println("Testing GET/SET...")
 	_, err := rClient.Set("k1", "value1", 0).Result()
 	TAssert(IsNil, err)
 
@@ -79,10 +78,6 @@ func TestProxy() {
 }
 
 func TestMerkleWrites() {
-	fmt.Println("Testing writes to Merkle chain...")
-	_, err := rClient.Set("k1", "value1", 0).Result()
-	TAssert(IsNil, err)
-
 	f, err := ioutil.ReadFile("/store/t0")
 	TAssert(IsNil, err)
 
@@ -91,16 +86,13 @@ func TestMerkleWrites() {
 	TAssert(ContainsSubstring, block, "time:")
 	TAssert(ContainsSubstring, block, "prev_hash:init")
 
-	_, err = rClient.Set("k2", "value2", 0).Result()
-	TAssert(IsNil, err)
-
 	f, err = ioutil.ReadFile("/store/t1")
 	TAssert(IsNil, err)
 
 	prevHash := fmt.Sprintf("%x", sha256.Sum256([]byte(block)))
 	prevTime := strings.Trim(strings.Split(block, ":")[2], "prev_hash")
 	block = string(f)
-	TAssert(ContainsSubstring, block, "command:*3\r\n$3\r\nset\r\n$2\r\nk2\r\n$6\r\nvalue2")
+	TAssert(ContainsSubstring, block, "command:*3\r\n$4\r\nsadd\r\n$2\r\nk2\r\n$6\r\nvalue2")
 	TAssert(ContainsSubstring, block, "time:")
 	TAssert(ContainsSubstring, block, "prev_hash:"+prevHash)
 	TAssert(ContainsSubstring, block, "prev_time:"+prevTime)

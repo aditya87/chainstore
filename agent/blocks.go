@@ -21,6 +21,10 @@ func (m MerkleWriter) WriteBlock(cmd []byte) error {
 	m.BlockMutex.Lock()
 	defer m.BlockMutex.Unlock()
 
+	if !m.isWrite(cmd) {
+		return nil
+	}
+
 	files, err := ioutil.ReadDir(m.Store)
 	if err != nil {
 		return errors.Wrapf(err, "Error reading %s directory", m.Store)
@@ -57,4 +61,22 @@ func (m MerkleWriter) WriteBlock(cmd []byte) error {
 	}
 
 	return nil
+}
+
+func (m MerkleWriter) isWrite(cmd []byte) bool {
+	inst := strings.Split(string(cmd), "\r\n")[2]
+	return inst == "append" ||
+		strings.Contains(inst, "pop") ||
+		strings.Contains(inst, "push") ||
+		strings.Contains(inst, "set") ||
+		strings.Contains(inst, "incr") ||
+		strings.Contains(inst, "decr") ||
+		strings.Contains(inst, "expire") ||
+		strings.Contains(inst, "flush") ||
+		strings.Contains(inst, "rem") ||
+		strings.Contains(inst, "del") ||
+		strings.Contains(inst, "trim") ||
+		strings.Contains(inst, "persist") ||
+		strings.Contains(inst, "rename") ||
+		strings.Contains(inst, "add")
 }
