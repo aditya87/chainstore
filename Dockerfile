@@ -12,7 +12,7 @@ WORKDIR /src/github.com/aditya87/chainstore
 RUN godep restore
 WORKDIR /src/github.com/aditya87/chainstore/agent
 RUN go build .
-WORKDIR /src/github.com/aditya87/chainstore/agent/agent_test
+WORKDIR /src/github.com/aditya87/chainstore/integration
 RUN go build .
 WORKDIR /src/github.com/aditya87/chainstore/store
 RUN go build .
@@ -22,6 +22,6 @@ FROM redis
 RUN mkdir -p /app
 COPY --from=0 /src/github.com/aditya87/chainstore/agent/agent /app/agent
 COPY --from=0 /src/github.com/aditya87/chainstore/store/store /app/store
-COPY --from=0 /src/github.com/aditya87/chainstore/agent/agent_test/agent_test /app/agent_test
+COPY --from=0 /src/github.com/aditya87/chainstore/integration/integration /app/agent_test
 
 CMD /app/agent_test
