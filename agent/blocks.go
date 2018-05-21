@@ -80,5 +80,5 @@ func (m MerkleWriter) isWrite(cmd []byte) bool {
 		strings.Contains(inst, "rename") ||
 		strings.Contains(inst, "add") ||
 		strings.Contains(inst, "memrangeby") ||
-		strings.Contains(inst, "unionstore")
+		strings.Contains(inst, "store")
 }
