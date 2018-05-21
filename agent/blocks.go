@@ -21,9 +21,9 @@ func (m MerkleWriter) WriteBlock(cmd []byte) error {
 	m.BlockMutex.Lock()
 	defer m.BlockMutex.Unlock()
 
-	files, err := ioutil.ReadDir("/store")
+	files, err := ioutil.ReadDir(m.Store)
 	if err != nil {
-		return errors.Wrap(err, "Error reading /store directory")
+		return errors.Wrapf(err, "Error reading %s directory", m.Store)
 	}
 
 	blockName := fmt.Sprintf("%s/t%d", m.Store, len(files))
