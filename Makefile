@@ -5,4 +5,4 @@ build:
 	docker build -f Dockerfile . -t agent_test
 
 test: build
-	docker run agent_test
+	docker run --rm agent_test

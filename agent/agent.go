@@ -17,7 +17,10 @@ func main() {
 		fmt.Println("Error listening:", err.Error())
 		os.Exit(1)
 	}
-	defer l.Close()
+	defer func() {
+		fmt.Println("Closing listener")
+		l.Close()
+	}()
 
 	fmt.Println("Listening on " + "localhost:" + os.Getenv("PORT"))
 	for {
@@ -32,53 +35,53 @@ func main() {
 }
 
 func handleRequest(conn net.Conn) {
-	defer conn.Close()
-	buf := make([]byte, 1024)
-	_, err := conn.Read(buf)
-	if err != nil {
-		fmt.Println("Error reading:", err.Error())
-		return
-	}
-
-	redisConn, err := net.Dial("tcp", "localhost:"+os.Getenv("REDIS_PORT"))
-	if err != nil {
-		fmt.Println("Error connecting to redis host:", err.Error())
-		return
-	}
-	defer redisConn.Close()
-
-	fmt.Fprintf(redisConn, string(buf))
-
-	reader := bufio.NewReader(redisConn)
-	reply := []byte{}
-	next, err := reader.Peek(1)
-	if err != nil {
-		fmt.Println("Error reading reply from redis backend:", err.Error())
-		return
-	}
-
-	switch string(next) {
-	case `$`:
-		reply, err = readBulkString(reader)
+	for {
+		buf := make([]byte, 1024)
+		_, err := conn.Read(buf)
 		if err != nil {
-			fmt.Println(err.Error())
 			return
 		}
-	case `*`:
-		reply, err = readArray(reader)
-		if err != nil {
-			fmt.Println(err.Error())
-			return
-		}
-	default:
-		reply, err = reader.ReadBytes('\n')
-		if err != nil {
-			fmt.Println(errors.Wrap(err, "Error reading reply from redis backend:").Error())
-			return
-		}
-	}
 
-	conn.Write(reply)
+		redisConn, err := net.Dial("tcp", "localhost:"+os.Getenv("REDIS_PORT"))
+		if err != nil {
+			fmt.Println("Error connecting to redis host:", err.Error())
+			return
+		}
+		defer redisConn.Close()
+
+		fmt.Fprintf(redisConn, string(buf))
+
+		reader := bufio.NewReader(redisConn)
+		reply := []byte{}
+		next, err := reader.Peek(1)
+		if err != nil {
+			fmt.Println("Error reading reply from redis backend:", err.Error())
+			return
+		}
+
+		switch string(next) {
+		case `$`:
+			reply, err = readBulkString(reader)
+			if err != nil {
+				fmt.Println(err.Error())
+				return
+			}
+		case `*`:
+			reply, err = readArray(reader)
+			if err != nil {
+				fmt.Println(err.Error())
+				return
+			}
+		default:
+			reply, err = reader.ReadBytes('\n')
+			if err != nil {
+				fmt.Println(errors.Wrap(err, "Error reading reply from redis backend:").Error())
+				return
+			}
+		}
+
+		conn.Write(reply)
+	}
 }
 
 func readArray(r *bufio.Reader) ([]byte, error) {
