@@ -65,7 +65,7 @@ func (m MerkleWriter) WriteBlock(cmd []byte) error {
 
 func (m MerkleWriter) isWrite(cmd []byte) bool {
 	inst := strings.Split(string(cmd), "\r\n")[2]
-	return inst == "append" ||
+	return strings.Contains(inst, "append") ||
 		strings.Contains(inst, "pop") ||
 		strings.Contains(inst, "push") ||
 		strings.Contains(inst, "set") ||
