@@ -78,5 +78,7 @@ func (m MerkleWriter) isWrite(cmd []byte) bool {
 		strings.Contains(inst, "trim") ||
 		strings.Contains(inst, "persist") ||
 		strings.Contains(inst, "rename") ||
-		strings.Contains(inst, "add")
+		strings.Contains(inst, "add") ||
+		strings.Contains(inst, "memrangeby") ||
+		strings.Contains(inst, "unionstore")
 }
