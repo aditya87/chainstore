@@ -6,18 +6,27 @@ import (
 	"io/ioutil"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/pkg/errors"
 )
 
-func writeBlock(cmd []byte) error {
+type MerkleWriter struct {
+	Store      string
+	BlockMutex *sync.Mutex
+}
+
+func (m MerkleWriter) WriteBlock(cmd []byte) error {
+	m.BlockMutex.Lock()
+	defer m.BlockMutex.Unlock()
+
 	files, err := ioutil.ReadDir("/store")
 	if err != nil {
 		return errors.Wrap(err, "Error reading /store directory")
 	}
 
-	blockName := fmt.Sprintf("/store/t%d", len(files))
+	blockName := fmt.Sprintf("%s/t%d", m.Store, len(files))
 	block, err := os.Create(blockName)
 	if err != nil {
 		return errors.Wrap(err, "Error creating block file")
@@ -28,7 +37,7 @@ func writeBlock(cmd []byte) error {
 	if len(files) == 0 {
 		prevHash = "init"
 	} else {
-		prevBlock, err := ioutil.ReadFile(fmt.Sprintf("/store/t%d", len(files)-1))
+		prevBlock, err := ioutil.ReadFile(fmt.Sprintf("%s/t%d", m.Store, len(files)-1))
 		if err != nil {
 			return errors.Wrap(err, "Error reading previous block file")
 		}

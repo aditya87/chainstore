@@ -1,10 +1,23 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"net"
 	"os"
+	"strconv"
+	"strings"
+	"sync"
+
+	"github.com/pkg/errors"
 )
+
+type Agent struct {
+	recorder    MerkleWriter
+	backendPort string
+}
+
+const storeDir = "/store"
 
 func main() {
 	l, err := net.Listen("tcp", "localhost:"+os.Getenv("PORT"))
@@ -14,10 +27,18 @@ func main() {
 	}
 	defer l.Close()
 
-	err = os.Mkdir("/store", os.ModeDir)
+	err = os.Mkdir(storeDir, os.ModeDir)
 	if err != nil {
 		fmt.Println("Error creating store directory:", err.Error())
 		os.Exit(1)
+	}
+
+	agent := Agent{
+		recorder: MerkleWriter{
+			Store:      storeDir,
+			BlockMutex: &sync.Mutex{},
+		},
+		backendPort: os.Getenv("REDIS_PORT"),
 	}
 
 	fmt.Println("Listening on " + "localhost:" + os.Getenv("PORT"))
@@ -28,11 +49,11 @@ func main() {
 			os.Exit(1)
 		}
 
-		go handleRequest(conn)
+		go agent.HandleRequest(conn)
 	}
 }
 
-func handleRequest(conn net.Conn) {
+func (a Agent) HandleRequest(conn net.Conn) {
 	for {
 		buf := make([]byte, 1024)
 		_, err := conn.Read(buf)
@@ -40,13 +61,13 @@ func handleRequest(conn net.Conn) {
 			return
 		}
 
-		err = writeBlock(buf)
+		err = a.recorder.WriteBlock(buf)
 		if err != nil {
 			fmt.Printf("Error writing block to local store: %v\n", err)
 			return
 		}
 
-		reply, err := sendToRedis(buf)
+		reply, err := a.sendToRedis(buf)
 		if err != nil {
 			fmt.Printf("Error sending command to redis: %v\n", err)
 			return
@@ -54,4 +75,78 @@ func handleRequest(conn net.Conn) {
 
 		conn.Write(reply)
 	}
+}
+
+func (a Agent) sendToRedis(command []byte) ([]byte, error) {
+	redisConn, err := net.Dial("tcp", "localhost:"+a.backendPort)
+	if err != nil {
+		return nil, errors.Wrap(err, "Error connecting to redis host")
+	}
+	defer redisConn.Close()
+
+	fmt.Fprintf(redisConn, string(command))
+
+	reader := bufio.NewReader(redisConn)
+	reply := []byte{}
+	next, err := reader.Peek(1)
+	if err != nil {
+		return nil, errors.Wrap(err, "Error reading reply from redis backend")
+	}
+
+	switch string(next) {
+	case `$`:
+		reply, err = a.readBulkString(reader)
+		if err != nil {
+			return nil, errors.Wrap(err, "Error reading reply from redis backend")
+		}
+	case `*`:
+		reply, err = a.readArray(reader)
+		if err != nil {
+			return nil, errors.Wrap(err, "Error reading reply from redis backend")
+		}
+	default:
+		reply, err = reader.ReadBytes('\n')
+		if err != nil {
+			return nil, errors.Wrap(err, "Error reading reply from redis backend")
+		}
+	}
+
+	return reply, nil
+}
+
+func (a Agent) readArray(r *bufio.Reader) ([]byte, error) {
+	bytes, err := r.ReadBytes('\n')
+	if err != nil {
+		return nil, errors.Wrap(err, "Error reading reply from redis backend:")
+	}
+
+	len, err := strconv.Atoi(strings.Trim(string(bytes), "*\r\n"))
+	if err != nil {
+		return nil, errors.Wrap(err, "Error reading reply from redis backend:")
+	}
+
+	for i := 0; i < len; i++ {
+		next, err := a.readBulkString(r)
+		if err != nil {
+			return nil, errors.Wrap(err, "Error reading reply from redis backend:")
+		}
+
+		bytes = append(bytes, next...)
+	}
+
+	return bytes, nil
+}
+
+func (a Agent) readBulkString(r *bufio.Reader) ([]byte, error) {
+	lenBytes, err := r.ReadBytes('\n')
+	if err != nil {
+		return nil, errors.Wrap(err, "Error reading reply from redis backend:")
+	}
+
+	contentBytes, err := r.ReadBytes('\n')
+	if err != nil {
+		return nil, errors.Wrap(err, "Error reading reply from redis backend:")
+	}
+
+	return append(lenBytes, contentBytes...), nil
 }
