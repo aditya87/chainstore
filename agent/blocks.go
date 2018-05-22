@@ -63,6 +63,29 @@ func (m MerkleWriter) WriteBlock(cmd []byte) error {
 	return nil
 }
 
+func (m MerkleWriter) ReadBlocks() ([][]byte, error) {
+	m.BlockMutex.Lock()
+	defer m.BlockMutex.Unlock()
+
+	files, err := ioutil.ReadDir(m.Store)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Error reading %s directory", m.Store)
+	}
+
+	cmds := [][]byte{}
+	for i := 0; i < len(files); i++ {
+		block, err := ioutil.ReadFile(fmt.Sprintf("%s/t%d", m.Store, i))
+		if err != nil {
+			return nil, errors.Wrapf(err, "Error reading block file %d", i)
+		}
+
+		cmd := []byte(strings.Trim(strings.Split(string(block), ":")[1], "time"))
+		cmds = append(cmds, cmd)
+	}
+
+	return cmds, nil
+}
+
 func (m MerkleWriter) isWrite(cmd []byte) bool {
 	inst := strings.Split(string(cmd), "\r\n")[2]
 	return strings.Contains(inst, "append") ||

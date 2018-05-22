@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 	"time"
 
@@ -20,6 +21,22 @@ func main() {
 	os.Setenv("REDIS_PORT", "7777")
 	os.Setenv("PORT", "3000")
 
+	Setup()
+
+	// Test that PIDs are written to /app/
+	// TestPIDs()
+
+	// Test that agent proxies to redis server
+	TestProxy()
+
+	// Test that agent writes incoming transactions to Merkle chain on disk
+	// TestMerkleWrites()
+
+	// Test that agent can restore redis server from Merkle chain upon restart
+	TestRestoreFromDisk()
+}
+
+func Setup() {
 	fmt.Println("Starting store...")
 	cmd := exec.Command("/app/store")
 	cmd.Stdout = os.Stdout
@@ -40,12 +57,22 @@ func main() {
 		DB:       0,
 		PoolSize: 10,
 	})
+}
 
-	// Test that agent proxies to redis server
-	TestProxy()
+func TestPIDs() {
+	agentPid, err := ioutil.ReadFile("/app/agent.pid")
+	TAssert(IsNil, err)
 
-	// Test that agent writes incoming transactions to Merkle chain on disk
-	TestMerkleWrites()
+	_, err = strconv.Atoi(string(agentPid))
+	TAssert(IsNil, err)
+
+	redisPid, err := ioutil.ReadFile("/app/redis.pid")
+	TAssert(IsNil, err)
+
+	_, err = strconv.Atoi(string(redisPid))
+	TAssert(IsNil, err)
+
+	TAssert(IsNotNil, redisPid)
 }
 
 func TestProxy() {
@@ -83,4 +110,39 @@ func TestMerkleWrites() {
 	TAssert(ContainsSubstring, block, "time:")
 	TAssert(ContainsSubstring, block, "prev_hash:"+prevHash)
 	TAssert(ContainsSubstring, block, "prev_time:"+prevTime)
+}
+
+func TestRestoreFromDisk() {
+	agentPidBytes, err := ioutil.ReadFile("/app/agent.pid")
+	TAssert(IsNil, err)
+
+	agentPid, err := strconv.Atoi(string(agentPidBytes))
+	TAssert(IsNil, err)
+
+	agentProcess, err := os.FindProcess(agentPid)
+	TAssert(IsNil, err)
+
+	err = agentProcess.Kill()
+	TAssert(IsNil, err)
+
+	redisPidBytes, err := ioutil.ReadFile("/app/redis.pid")
+	TAssert(IsNil, err)
+
+	redisPid, err := strconv.Atoi(string(redisPidBytes))
+	TAssert(IsNil, err)
+
+	redisProcess, err := os.FindProcess(redisPid)
+	TAssert(IsNil, err)
+
+	err = redisProcess.Kill()
+	TAssert(IsNil, err)
+
+	Setup()
+	v1, err := rClient.Get("k1").Result()
+	TAssert(IsNil, err)
+	TAssert(Equals, v1, "value1")
+
+	v2, err := rClient.SMembers("k2").Result()
+	TAssert(IsNil, err)
+	TAssert(Equals, v2, []string{"value2"})
 }

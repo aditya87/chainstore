@@ -27,10 +27,12 @@ func main() {
 	}
 	defer l.Close()
 
-	err = os.Mkdir(storeDir, os.ModeDir)
-	if err != nil {
-		fmt.Println("Error creating store directory:", err.Error())
-		os.Exit(1)
+	if _, err := os.Stat(storeDir); os.IsNotExist(err) {
+		err = os.Mkdir(storeDir, os.ModeDir)
+		if err != nil {
+			fmt.Println("Error creating store directory:", err.Error())
+			os.Exit(1)
+		}
 	}
 
 	agent := Agent{
@@ -40,6 +42,8 @@ func main() {
 		},
 		backendPort: os.Getenv("REDIS_PORT"),
 	}
+
+	agent.RestoreFromDisk()
 
 	fmt.Println("Listening on " + "localhost:" + os.Getenv("PORT"))
 	for {
@@ -58,6 +62,7 @@ func (a Agent) HandleRequest(conn net.Conn) {
 		buf := make([]byte, 1024)
 		_, err := conn.Read(buf)
 		if err != nil {
+			fmt.Printf("Done: %v\n", err)
 			return
 		}
 
@@ -143,10 +148,30 @@ func (a Agent) readBulkString(r *bufio.Reader) ([]byte, error) {
 		return nil, errors.Wrap(err, "Error reading reply from redis backend:")
 	}
 
+	if string(lenBytes) == "$-1\r\n" {
+		return lenBytes, nil
+	}
+
 	contentBytes, err := r.ReadBytes('\n')
 	if err != nil {
 		return nil, errors.Wrap(err, "Error reading reply from redis backend:")
 	}
 
 	return append(lenBytes, contentBytes...), nil
+}
+
+func (a Agent) RestoreFromDisk() error {
+	cmds, err := a.recorder.ReadBlocks()
+	if err != nil {
+		return errors.Wrap(err, "Could not read blocks from disk")
+	}
+
+	for _, cmd := range cmds {
+		_, err := a.sendToRedis(cmd)
+		if err != nil {
+			return errors.Wrap(err, "Could not restore from disk")
+		}
+	}
+
+	return nil
 }
