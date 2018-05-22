@@ -62,7 +62,6 @@ func (a Agent) HandleRequest(conn net.Conn) {
 		buf := make([]byte, 1024)
 		_, err := conn.Read(buf)
 		if err != nil {
-			fmt.Printf("Done: %v\n", err)
 			return
 		}
 
