@@ -24,13 +24,13 @@ func main() {
 	Setup()
 
 	// Test that PIDs are written to /app/
-	// TestPIDs()
+	TestPIDs()
 
 	// Test that agent proxies to redis server
 	TestProxy()
 
 	// Test that agent writes incoming transactions to Merkle chain on disk
-	// TestMerkleWrites()
+	TestMerkleWrites()
 
 	// Test that agent can restore redis server from Merkle chain upon restart
 	TestRestoreFromDisk()
