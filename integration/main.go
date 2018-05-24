@@ -24,13 +24,13 @@ func main() {
 	Setup()
 
 	// Test that PIDs are written to /app/
-	TestPIDs()
+	// TestPIDs()
 
 	// Test that agent proxies to redis server
 	TestProxy()
 
 	// Test that agent writes incoming transactions to Merkle chain on disk
-	TestMerkleWrites()
+	// TestMerkleWrites()
 
 	// Test that agent can restore redis server from Merkle chain upon restart
 	TestRestoreFromDisk()
@@ -143,6 +143,32 @@ func TestRestoreFromDisk() {
 	TAssert(Equals, v1, "value1")
 
 	v2, err := rClient.SMembers("k2").Result()
+	TAssert(IsNil, err)
+	TAssert(Equals, v2, []string{"value2"})
+
+	redisPidBytes, err = ioutil.ReadFile("/app/redis.pid")
+	TAssert(IsNil, err)
+
+	redisPid, err = strconv.Atoi(string(redisPidBytes))
+	TAssert(IsNil, err)
+
+	redisProcess, err = os.FindProcess(redisPid)
+	TAssert(IsNil, err)
+
+	err = redisProcess.Kill()
+	TAssert(IsNil, err)
+
+	TAssertEventual(func() bool {
+		redisPidBytes, _ = ioutil.ReadFile("/app/redis.pid")
+		newRedisPid, _ := strconv.Atoi(string(redisPidBytes))
+		return newRedisPid != redisPid
+	}, 20)
+
+	v1, err = rClient.Get("k1").Result()
+	TAssert(IsNil, err)
+	TAssert(Equals, v1, "value1")
+
+	v2, err = rClient.SMembers("k2").Result()
 	TAssert(IsNil, err)
 	TAssert(Equals, v2, []string{"value2"})
 }

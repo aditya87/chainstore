@@ -3,11 +3,15 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"io/ioutil"
+	"log"
 	"net"
 	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/pkg/errors"
 )
@@ -44,6 +48,8 @@ func main() {
 	}
 
 	agent.RestoreFromDisk()
+
+	go agent.MonitorRedis()
 
 	fmt.Println("Listening on " + "localhost:" + os.Getenv("PORT"))
 	for {
@@ -170,6 +176,52 @@ func (a Agent) RestoreFromDisk() error {
 		if err != nil {
 			return errors.Wrap(err, "Could not restore from disk")
 		}
+	}
+
+	return nil
+}
+
+func (a Agent) MonitorRedis() {
+	redisPidBytes, err := ioutil.ReadFile("/app/redis.pid")
+	if err != nil {
+		log.Fatalf("Could not read Redis PID file: %s", err.Error())
+	}
+
+	redisPid, err := strconv.Atoi(string(redisPidBytes))
+	if err != nil {
+		log.Fatalf("Could not parse PID from Redis PID file: %s", err.Error())
+	}
+
+	redisProcess, err := os.FindProcess(redisPid)
+	if err != nil {
+		log.Fatalf("Redis process monitor failed: %s", err.Error())
+	}
+
+	for {
+		fmt.Printf("redisProcess: %+v\n", redisProcess)
+		state, err := redisProcess.Wait()
+		fmt.Printf("%+v %+v\n", state, err)
+		time.Sleep(2 * time.Second)
+	}
+}
+
+func (a Agent) startRedis() error {
+	cmd := exec.Command("redis-server", "--port", os.Getenv("REDIS_PORT"))
+	err := cmd.Start()
+	if err != nil {
+		return errors.Wrap(err, "Could not start redis-server")
+	}
+
+	time.Sleep(2 * time.Second)
+	redisPid := cmd.Process.Pid
+	redisPidFile, err := os.OpenFile("/app/redis.pid", os.O_RDWR|os.O_CREATE, 0755)
+	if err != nil {
+		return errors.Wrap(err, "Could not open/create PID file for redis-server")
+	}
+
+	_, err = redisPidFile.Write([]byte(fmt.Sprintf("%d", redisPid)))
+	if err != nil {
+		return errors.Wrap(err, "Could not write PID file for redis-server")
 	}
 
 	return nil

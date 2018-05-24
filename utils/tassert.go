@@ -5,6 +5,7 @@ import (
 	"log"
 	"reflect"
 	"strings"
+	"time"
 )
 
 func TAssert(matcher func(m []interface{}) error, test ...interface{}) {
@@ -14,6 +15,24 @@ func TAssert(matcher func(m []interface{}) error, test ...interface{}) {
 	}
 
 	log.Println("\x1b[32m\u2713\x1b[0m")
+}
+
+func TAssertEventual(assertion func() bool, timeout ...int) {
+	max := 10
+	if len(timeout) != 0 {
+		max = timeout[0]
+	}
+	for i := 0; i < max; i++ {
+		test := assertion()
+		if test {
+			log.Println("\x1b[32m\u2713\x1b[0m")
+			return
+		}
+
+		time.Sleep(1 * time.Second)
+	}
+
+	log.Fatal("\x1b[91mERROR: eventual assertion failed\x1b[0m")
 }
 
 func IsNil(m []interface{}) error {

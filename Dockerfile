@@ -5,11 +5,7 @@ ENV PATH=$PATH:/bin
 
 RUN mkdir -p /src/github.com/aditya87/chainstore
 ADD . /src/github.com/aditya87/chainstore
-RUN go get github.com/tools/godep
 
-WORKDIR /src/github.com/aditya87/chainstore
-
-RUN godep restore
 WORKDIR /src/github.com/aditya87/chainstore/agent
 RUN go build .
 WORKDIR /src/github.com/aditya87/chainstore/integration
