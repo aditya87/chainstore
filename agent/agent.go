@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/pkg/errors"
@@ -181,7 +182,7 @@ func (a Agent) RestoreFromDisk() error {
 	return nil
 }
 
-func (a Agent) MonitorRedis() {
+func (a Agent) findRedisProcess() *os.Process {
 	redisPidBytes, err := ioutil.ReadFile("/app/redis.pid")
 	if err != nil {
 		log.Fatalf("Could not read Redis PID file: %s", err.Error())
@@ -197,10 +198,20 @@ func (a Agent) MonitorRedis() {
 		log.Fatalf("Redis process monitor failed: %s", err.Error())
 	}
 
+	return redisProcess
+}
+
+func (a Agent) isAlive(proc *os.Process) bool {
+	return proc.Signal(syscall.Signal(0)) == nil
+}
+
+func (a Agent) MonitorRedis() {
+	redisProcess := a.findRedisProcess()
 	for {
-		fmt.Printf("redisProcess: %+v\n", redisProcess)
-		state, err := redisProcess.Wait()
-		fmt.Printf("%+v %+v\n", state, err)
+		if !a.isAlive(redisProcess) {
+			a.startRedis()
+			redisProcess = a.findRedisProcess()
+		}
 		time.Sleep(2 * time.Second)
 	}
 }
@@ -222,6 +233,11 @@ func (a Agent) startRedis() error {
 	_, err = redisPidFile.Write([]byte(fmt.Sprintf("%d", redisPid)))
 	if err != nil {
 		return errors.Wrap(err, "Could not write PID file for redis-server")
+	}
+
+	err = a.RestoreFromDisk()
+	if err != nil {
+		return errors.Wrap(err, "Could not restore from disk")
 	}
 
 	return nil

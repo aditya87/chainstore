@@ -24,16 +24,19 @@ func main() {
 	Setup()
 
 	// Test that PIDs are written to /app/
-	// TestPIDs()
+	TestPIDs()
 
 	// Test that agent proxies to redis server
 	TestProxy()
 
 	// Test that agent writes incoming transactions to Merkle chain on disk
-	// TestMerkleWrites()
+	TestMerkleWrites()
 
 	// Test that agent can restore redis server from Merkle chain upon restart
 	TestRestoreFromDisk()
+
+	// Test that agent restarts and restores redis server if it gets killed
+	TestRestoreAfterRedisKill()
 }
 
 func Setup() {
@@ -145,14 +148,16 @@ func TestRestoreFromDisk() {
 	v2, err := rClient.SMembers("k2").Result()
 	TAssert(IsNil, err)
 	TAssert(Equals, v2, []string{"value2"})
+}
 
-	redisPidBytes, err = ioutil.ReadFile("/app/redis.pid")
+func TestRestoreAfterRedisKill() {
+	redisPidBytes, err := ioutil.ReadFile("/app/redis.pid")
 	TAssert(IsNil, err)
 
-	redisPid, err = strconv.Atoi(string(redisPidBytes))
+	redisPid, err := strconv.Atoi(string(redisPidBytes))
 	TAssert(IsNil, err)
 
-	redisProcess, err = os.FindProcess(redisPid)
+	redisProcess, err := os.FindProcess(redisPid)
 	TAssert(IsNil, err)
 
 	err = redisProcess.Kill()
@@ -164,11 +169,11 @@ func TestRestoreFromDisk() {
 		return newRedisPid != redisPid
 	}, 20)
 
-	v1, err = rClient.Get("k1").Result()
+	v1, err := rClient.Get("k1").Result()
 	TAssert(IsNil, err)
 	TAssert(Equals, v1, "value1")
 
-	v2, err = rClient.SMembers("k2").Result()
+	v2, err := rClient.SMembers("k2").Result()
 	TAssert(IsNil, err)
 	TAssert(Equals, v2, []string{"value2"})
 }

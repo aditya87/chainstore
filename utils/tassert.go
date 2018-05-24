@@ -25,7 +25,7 @@ func TAssertEventual(assertion func() bool, timeout ...int) {
 	for i := 0; i < max; i++ {
 		test := assertion()
 		if test {
-			log.Println("\x1b[32m\u2713\x1b[0m")
+			log.Println("\x1b[32m\u2022\u2713\x1b[0m")
 			return
 		}
 
