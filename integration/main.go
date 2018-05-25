@@ -18,9 +18,6 @@ import (
 var rClient *redis.Client
 
 func main() {
-	os.Setenv("REDIS_PORT", "7777")
-	os.Setenv("PORT", "3000")
-
 	Setup()
 
 	// Test that PIDs are written to /app/
@@ -54,9 +51,7 @@ func Setup() {
 
 	fmt.Println("Creating redis client...")
 	rClient = redis.NewClient(&redis.Options{
-		Addr: fmt.Sprintf(
-			"localhost:%s",
-			os.Getenv("PORT")),
+		Addr:     "localhost:3000",
 		DB:       0,
 		PoolSize: 10,
 	})

@@ -18,5 +18,7 @@ FROM redis
 RUN mkdir -p /app
 COPY --from=0 /src/github.com/aditya87/chainstore/agent/agent /app/agent
 COPY --from=0 /src/github.com/aditya87/chainstore/store/store /app/store
+COPY --from=0 /src/github.com/aditya87/chainstore/integration/integration /app/agent_test
 
-CMD /app/store && /bin/bash
+RUN /app/agent_test
+

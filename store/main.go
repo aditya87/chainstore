@@ -10,7 +10,7 @@ import (
 
 func main() {
 	fmt.Println("Starting redis server...")
-	cmd := exec.Command("redis-server", "--port", os.Getenv("REDIS_PORT"))
+	cmd := exec.Command("redis-server", "--port", "6379")
 	err := cmd.Start()
 	if err != nil {
 		log.Fatalf("Could not start redis-server: %v\n", err)

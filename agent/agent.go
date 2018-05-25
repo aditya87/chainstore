@@ -25,7 +25,7 @@ type Agent struct {
 const storeDir = "/store"
 
 func main() {
-	l, err := net.Listen("tcp", "localhost:"+os.Getenv("PORT"))
+	l, err := net.Listen("tcp", "localhost:3000")
 	if err != nil {
 		fmt.Println("Error listening:", err.Error())
 		os.Exit(1)
@@ -45,14 +45,14 @@ func main() {
 			Store:      storeDir,
 			BlockMutex: &sync.Mutex{},
 		},
-		backendPort: os.Getenv("REDIS_PORT"),
+		backendPort: "6379",
 	}
 
 	agent.RestoreFromDisk()
 
 	go agent.MonitorRedis()
 
-	fmt.Println("Listening on " + "localhost:" + os.Getenv("PORT"))
+	fmt.Println("Listening on " + "localhost:3000")
 	for {
 		conn, err := l.Accept()
 		if err != nil {
@@ -217,7 +217,7 @@ func (a Agent) MonitorRedis() {
 }
 
 func (a Agent) startRedis() error {
-	cmd := exec.Command("redis-server", "--port", os.Getenv("REDIS_PORT"))
+	cmd := exec.Command("redis-server", "--port", "6379")
 	err := cmd.Start()
 	if err != nil {
 		return errors.Wrap(err, "Could not start redis-server")
