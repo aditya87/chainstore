@@ -17,7 +17,7 @@ type MerkleWriter struct {
 	BlockMutex *sync.Mutex
 }
 
-func (m MerkleWriter) WriteBlock(cmd []byte) error {
+func (m MerkleWriter) WriteBlockCmd(cmd []byte) error {
 	m.BlockMutex.Lock()
 	defer m.BlockMutex.Unlock()
 
@@ -63,6 +63,28 @@ func (m MerkleWriter) WriteBlock(cmd []byte) error {
 	return nil
 }
 
+func (m MerkleWriter) WriteBlock(blockContent []byte) error {
+	m.BlockMutex.Lock()
+	defer m.BlockMutex.Unlock()
+
+	files, err := ioutil.ReadDir(m.Store)
+	if err != nil {
+		return errors.Wrapf(err, "Error reading %s directory", m.Store)
+	}
+
+	blockName := fmt.Sprintf("%s/t%d", m.Store, len(files))
+	block, err := os.Create(blockName)
+	if err != nil {
+		return errors.Wrap(err, "Error creating block file")
+	}
+	_, err = block.Write([]byte(blockContent))
+	if err != nil {
+		return errors.Wrap(err, "Error writing to block file")
+	}
+
+	return nil
+}
+
 func (m MerkleWriter) ReadBlocks() ([][]byte, error) {
 	m.BlockMutex.Lock()
 	defer m.BlockMutex.Unlock()
@@ -84,6 +106,23 @@ func (m MerkleWriter) ReadBlocks() ([][]byte, error) {
 	}
 
 	return cmds, nil
+}
+
+func (m MerkleWriter) ReadLastBlock() ([]byte, error) {
+	m.BlockMutex.Lock()
+	defer m.BlockMutex.Unlock()
+
+	files, err := ioutil.ReadDir(m.Store)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Error reading %s directory", m.Store)
+	}
+
+	block, err := ioutil.ReadFile(fmt.Sprintf("%s/t%d", m.Store, len(files)-1))
+	if err != nil {
+		return nil, errors.Wrapf(err, "Error reading block file t%d", len(files))
+	}
+
+	return block, nil
 }
 
 func (m MerkleWriter) isWrite(cmd []byte) bool {

@@ -10,7 +10,7 @@ import (
 
 func main() {
 	fmt.Println("Creating log file...")
-	_, err := os.OpenFile("/app/agent.log", os.O_APPEND|os.O_CREATE, 0666)
+	_, err := os.OpenFile("/app/agent.log", os.O_CREATE|os.O_TRUNC, 0666)
 	if err != nil {
 		log.Fatalf("Could not create logfile: %v\n", err)
 	}

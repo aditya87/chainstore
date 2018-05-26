@@ -2,15 +2,32 @@ package utils
 
 import (
 	"fmt"
+	"io/ioutil"
 	"log"
 	"reflect"
 	"strings"
 	"time"
 )
 
+const debug = true
+
+func dumpDebug() {
+	if !debug {
+		return
+	}
+
+	logs, err := ioutil.ReadFile("/app/agent.log")
+	if err != nil {
+		log.Printf("ERROR: Could not read logfile %v\n", err)
+	}
+
+	fmt.Println(string(logs))
+}
+
 func TAssert(matcher func(m []interface{}) error, test ...interface{}) {
 	err := matcher(test)
 	if err != nil {
+		dumpDebug()
 		log.Fatalf("\x1b[91mERROR: %s\x1b[0m", err.Error())
 	}
 
@@ -32,11 +49,13 @@ func TAssertEventual(assertion func() bool, timeout ...int) {
 		time.Sleep(1 * time.Second)
 	}
 
+	dumpDebug()
 	log.Fatal("\x1b[91mERROR: eventual assertion failed\x1b[0m")
 }
 
 func IsNil(m []interface{}) error {
 	if m[0] != nil {
+		dumpDebug()
 		return fmt.Errorf("Expected nil, got %+v", m[0])
 	}
 
@@ -45,6 +64,7 @@ func IsNil(m []interface{}) error {
 
 func IsNotNil(m []interface{}) error {
 	if m[0] == nil {
+		dumpDebug()
 		return fmt.Errorf("Expected non-nil, got %v", m[0])
 	}
 
@@ -53,6 +73,7 @@ func IsNotNil(m []interface{}) error {
 
 func Equals(m []interface{}) error {
 	if !reflect.DeepEqual(m[0], m[1]) {
+		dumpDebug()
 		return fmt.Errorf("Expected %+v, got %+v", m[1], m[0])
 	}
 
@@ -62,15 +83,18 @@ func Equals(m []interface{}) error {
 func ContainsSubstring(m []interface{}) error {
 	actual, ok := m[0].(string)
 	if !ok {
+		dumpDebug()
 		return fmt.Errorf("Cannot convert %+v to string", m[0])
 	}
 
 	expected, ok := m[1].(string)
 	if !ok {
+		dumpDebug()
 		return fmt.Errorf("Cannot convert %+v to string", m[1])
 	}
 
 	if !strings.Contains(actual, expected) {
+		dumpDebug()
 		return fmt.Errorf("Expected %s to contain %s", actual, expected)
 	}
 

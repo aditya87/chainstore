@@ -1,10 +1,12 @@
 package main
 
 import (
+	"bufio"
 	"crypto/sha256"
 	"fmt"
 	"io/ioutil"
 	"log"
+	"net"
 	"os"
 	"os/exec"
 	"strconv"
@@ -21,19 +23,22 @@ func main() {
 	Setup()
 
 	// Test that PIDs are written to /app/
-	TestPIDs()
+	// TestPIDs()
 
 	// Test that agent proxies to redis server
 	TestProxy()
 
 	// Test that agent writes incoming transactions to Merkle chain on disk
-	TestMerkleWrites()
+	// TestMerkleWrites()
 
 	// Test that agent can restore redis server from Merkle chain upon restart
-	TestRestoreFromDisk()
+	// TestRestoreFromDisk()
 
 	// Test that agent restarts and restores redis server if it gets killed
-	TestRestoreAfterRedisKill()
+	// TestRestoreAfterRedisKill()
+
+	// Test that agent replicates transactions from other agents
+	TestReplication()
 }
 
 func Setup() {
@@ -171,4 +176,36 @@ func TestRestoreAfterRedisKill() {
 	v2, err := rClient.SMembers("k2").Result()
 	TAssert(IsNil, err)
 	TAssert(Equals, v2, []string{"value2"})
+}
+
+func TestReplication() {
+	f, err := ioutil.ReadFile("/store/t1")
+	TAssert(IsNil, err)
+
+	block := string(f)
+	hash := fmt.Sprintf("%x", sha256.Sum256([]byte(block)))
+	replTransaction := fmt.Sprintf("REPLcommand:*3\r\n$3\r\nset\r\n$1\r\ny\r\n$2\r\n10\r\n\r\ntime:%d\r\nprev_hash:%s\r\nprev_time:%d\r\nENDREPL", time.Now().UnixNano(), hash, time.Now().UnixNano())
+
+	replConn, err := net.Dial("tcp", "localhost:3001")
+	TAssert(IsNil, err)
+	defer replConn.Close()
+
+	fmt.Fprintf(replConn, replTransaction)
+	reader := bufio.NewReader(replConn)
+
+	var bytes []byte
+	go func() {
+		bytes, err = reader.ReadBytes('\n')
+	}()
+
+	TAssertEventual(func() bool { return string(bytes) == "+OK\r\n" }, 3)
+
+	f, err = ioutil.ReadFile("/store/t2")
+	TAssert(IsNil, err)
+
+	block = string(f)
+	TAssert(ContainsSubstring, block, "command:*3\r\n$3\r\nset\r\n$1\r\ny\r\n$2\r\n10")
+	TAssert(ContainsSubstring, block, "time:")
+	TAssert(ContainsSubstring, block, "prev_hash:"+hash)
+	TAssert(ContainsSubstring, block, "prev_time:")
 }
