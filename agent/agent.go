@@ -3,7 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net"
 	"os"
@@ -11,7 +11,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/pkg/errors"
@@ -25,18 +24,23 @@ type Agent struct {
 const storeDir = "/store"
 
 func main() {
+	logFile, err := os.OpenFile("/app/agent.log", os.O_APPEND|os.O_RDWR, 0666)
+	if err != nil {
+		log.Fatalln("Could not open logfile")
+	}
+
+	log.SetOutput(io.MultiWriter(os.Stdout, logFile))
+
 	l, err := net.Listen("tcp", "localhost:3000")
 	if err != nil {
-		fmt.Println("Error listening:", err.Error())
-		os.Exit(1)
+		log.Fatalln("Error listening:", err.Error())
 	}
 	defer l.Close()
 
 	if _, err := os.Stat(storeDir); os.IsNotExist(err) {
 		err = os.Mkdir(storeDir, os.ModeDir)
 		if err != nil {
-			fmt.Println("Error creating store directory:", err.Error())
-			os.Exit(1)
+			log.Fatalln("Error creating store directory:", err.Error())
 		}
 	}
 
@@ -52,11 +56,11 @@ func main() {
 
 	go agent.MonitorRedis()
 
-	fmt.Println("Listening on " + "localhost:3000")
+	log.Println("Listening on " + "localhost:3000")
 	for {
 		conn, err := l.Accept()
 		if err != nil {
-			fmt.Println("Error accepting: ", err.Error())
+			log.Println("Error accepting: ", err.Error())
 			os.Exit(1)
 		}
 
@@ -74,13 +78,13 @@ func (a Agent) HandleRequest(conn net.Conn) {
 
 		err = a.recorder.WriteBlock(buf)
 		if err != nil {
-			fmt.Printf("Error writing block to local store: %v\n", err)
+			log.Printf("Error writing block to local store: %v\n", err)
 			return
 		}
 
 		reply, err := a.sendToRedis(buf)
 		if err != nil {
-			fmt.Printf("Error sending command to redis: %v\n", err)
+			log.Printf("Error sending command to redis: %v\n", err)
 			return
 		}
 
@@ -182,35 +186,17 @@ func (a Agent) RestoreFromDisk() error {
 	return nil
 }
 
-func (a Agent) findRedisProcess() *os.Process {
-	redisPidBytes, err := ioutil.ReadFile("/app/redis.pid")
-	if err != nil {
-		log.Fatalf("Could not read Redis PID file: %s", err.Error())
-	}
-
-	redisPid, err := strconv.Atoi(string(redisPidBytes))
-	if err != nil {
-		log.Fatalf("Could not parse PID from Redis PID file: %s", err.Error())
-	}
-
-	redisProcess, err := os.FindProcess(redisPid)
-	if err != nil {
-		log.Fatalf("Redis process monitor failed: %s", err.Error())
-	}
-
-	return redisProcess
-}
-
-func (a Agent) isAlive(proc *os.Process) bool {
-	return proc.Signal(syscall.Signal(0)) == nil
+func (a Agent) isRedisAlive() bool {
+	cmd := exec.Command("pgrep", "-f", "redis")
+	err := cmd.Run()
+	return err == nil
 }
 
 func (a Agent) MonitorRedis() {
-	redisProcess := a.findRedisProcess()
 	for {
-		if !a.isAlive(redisProcess) {
+		if !a.isRedisAlive() {
+			log.Println("Could not find Redis process, restarting...")
 			a.startRedis()
-			redisProcess = a.findRedisProcess()
 		}
 		time.Sleep(2 * time.Second)
 	}

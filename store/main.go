@@ -31,10 +31,14 @@ func main() {
 		return
 	}
 
+	fmt.Println("Creating log file...")
+	_, err = os.OpenFile("/app/agent.log", os.O_APPEND|os.O_CREATE, 0666)
+	if err != nil {
+		log.Fatalf("Could not create logfile: %v\n", err)
+	}
+
 	fmt.Println("Starting agent...")
 	cmd = exec.Command("/app/agent")
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stdout
 	err = cmd.Start()
 	if err != nil {
 		log.Fatalf("Could not start agent: %v\n", err)
