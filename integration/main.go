@@ -38,7 +38,7 @@ func main() {
 
 func Setup() {
 	fmt.Println("Starting store...")
-	cmd := exec.Command("/app/store")
+	cmd := exec.Command("/app/startup")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stdout
 	err := cmd.Start()

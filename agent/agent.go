@@ -203,22 +203,10 @@ func (a Agent) MonitorRedis() {
 }
 
 func (a Agent) startRedis() error {
-	cmd := exec.Command("redis-server", "--port", "6379")
-	err := cmd.Start()
+	cmd := exec.Command("/app/redis-start")
+	err := cmd.Run()
 	if err != nil {
 		return errors.Wrap(err, "Could not start redis-server")
-	}
-
-	time.Sleep(2 * time.Second)
-	redisPid := cmd.Process.Pid
-	redisPidFile, err := os.OpenFile("/app/redis.pid", os.O_RDWR|os.O_CREATE, 0755)
-	if err != nil {
-		return errors.Wrap(err, "Could not open/create PID file for redis-server")
-	}
-
-	_, err = redisPidFile.Write([]byte(fmt.Sprintf("%d", redisPid)))
-	if err != nil {
-		return errors.Wrap(err, "Could not write PID file for redis-server")
 	}
 
 	err = a.RestoreFromDisk()
